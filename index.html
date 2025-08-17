@@ -2,192 +2,144 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>GeoJSON Viewer (Leaflet)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ashland Iron Works Map</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     html, body, #map { height: 100%; margin: 0; }
+    .topright {
+      position: absolute; right: 10px; top: 10px; z-index: 9999;
+      background: rgba(255,255,255,.9); padding: 6px 8px; border-radius: 6px;
+      font: 12px/1.3 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      box-shadow: 0 2px 6px rgba(0,0,0,.12);
+    }
+    .error { color: #b00020; }
   </style>
 </head>
 <body>
-  <div id="map"></div>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script>
-    // Paste YOUR GeoJSON below (replace the object assigned to `data`)
-    const data = {
-      "type": "FeatureCollection",
-      "features": [
-        { 
-          "type": "Feature", 
-          "properties": { 
-            "name": "Estimated Camera Position", 
-            "category": "reference",
-            "note": "(-76.6859, 39.4942)"
-          },
-          "geometry": { 
-            "type": "Point", 
-            "coordinates": [ -76.6859, 39.4942 ] 
-          }
-        },
+<div id="map"></div>
+<div class="topright" id="status">Loading GeoJSON…</div>
 
-        { 
-          "type": "Feature", 
-          "properties": { 
-            "name": "Ashland Furnace site", 
-            "category": "reference",
-            "note": "approximate location based on historical maps (-76.6883, 39.4934)"
-          },
-          "geometry": { 
-            "type": "Point", 
-            "coordinates": [ -76.6883, 39.4934 ] 
-          }
-        },
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Esri Leaflet to read ArcGIS REST (for MD Hillshade) -->
+<script src="https://unpkg.com/esri-leaflet@3/dist/esri-leaflet.js"></script>
+<script>
+(async function () {
+  // ---- Base map & panes -----------------------------------------------------
+  const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    { attribution: '&copy; OpenStreetMap contributors' });
+  const esriImg = L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    { attribution: 'Imagery &copy; Esri' }
+  );
 
-        { 
-          "type": "Feature", 
-          "properties": { 
-            "name": "Worker housing rows", 
-            "category": "housing",
-            "note": "approximate location based on historical maps (-76.692461, 39.494568)"
-          },
-          "geometry": { 
-            "type": "Point", 
-            "coordinates": [ -76.69246144780539, 39.49456875302705 ] 
-          }
-        },
+  const map = L.map('map', { layers: [osm] });
 
-        { 
-          "type": "Feature", 
-          "properties": { 
-            "name": "Slag/stone bank (approx.)", 
-            "category": "slag" 
-          },
-          "geometry": { 
-            "type": "Point", 
-            "coordinates": [ -76.6896, 39.4936 ] 
-          }
-        },
+  // Create panes to control z-order and click behavior
+  map.createPane('polys');   map.getPane('polys').style.zIndex = 200;
+  map.createPane('lines');   map.getPane('lines').style.zIndex = 250;
+  map.createPane('halos');   map.getPane('halos').style.zIndex = 295;
+  map.createPane('points');  map.getPane('points').style.zIndex = 300;
 
-        { 
-          "type": "Feature", 
-          "properties": { 
-            "name": "View Cone (~35°)", 
-            "bearing_to_target_deg": 246.6, 
-            "category": "viewcone" 
-          },
-          "geometry": { 
-            "type": "Polygon",
-            "coordinates": [[
-              [ -76.6859, 39.4942 ],
-              [ -76.6929505919094, 39.48949289122057 ],
-              [ -76.69517431362617, 39.493464930916545 ],
-              [ -76.6859, 39.4942 ]
-            ]] }},
+  // MD statewide LiDAR hillshade (ArcGIS ImageServer)
+  const mdHillshade = L.esri.imageMapLayer({
+    url: 'https://lidar.geodata.md.gov/imap/rest/services/Statewide/MD_statewide_hillshade_m/ImageServer',
+    opacity: 0.6
+  });
 
-        { 
-          "type": "Feature", 
-          "properties": { 
-            "name": "Camera→Target sightline", 
-            "category": "reference" 
-          },
-          "geometry": { 
-            "type": "LineString",
-            "coordinates": [[ -76.6859, 39.4942 ], [ -76.6883, 39.4934 ]] 
-          }
-        },
+  // Optional: Hopkins 1877 warped tiles (fill in when you have a MapWarper/MaptTiler URL)
+  // const hopkins1877 = L.tileLayer(
+  //   'https://mapwarper.net/maps/tile/<MAP_ID>/{z}/{x}/{y}.png',
+  //   { opacity: 0.55, attribution: 'Hopkins 1877 (warped)' }
+  // );
 
-        { 
-          "type": "Feature", 
-          "properties": { 
-            "name": "Approx. NCR Rail Alignment (≈20°)", 
-            "bearing_deg": 20.0, 
-            "category": "rail" 
-          },
-          "geometry": { 
-            "type": "LineString",
-            "coordinates": [[ -76.69228535154822, 39.48494907320139 ], [ -76.68431367943748, 39.50185079071264 ]] 
-          }
-        },
+  const baseLayers = {
+    'OpenStreetMap': osm,
+    'Esri World Imagery': esriImg
+  };
+  const overlays = {
+    'MD LiDAR Hillshade': mdHillshade
+    // ,'Hopkins 1877 (warped)': hopkins1877
+  };
 
-        { 
-          "type": "Feature", 
-          "properties": { 
-            "name": "Rail Reference – North (≈350 m)", 
-            "category": "rail" 
-          },
-          "geometry": { 
-            "type": "Point", 
-            "coordinates": [ -76.68690489805466, 39.496357792232985 ] 
-          }
-        },
+  const layersControl = L.control.layers(baseLayers, overlays, { collapsed: false }).addTo(map);
 
-        { 
-          "type": "Feature", 
-          "properties": { 
-            "name": "Rail Reference – South (≈450 m)", 
-            "category": "rail" 
-          },
-          "geometry": { 
-            "type": "Point", 
-            "coordinates": [ -76.69009352808165, 39.48959709977683 ] 
-          }
-        }
-      ]
-    }
+  // ---- Load your GeoJSON ----------------------------------------------------
+  const status = document.getElementById('status');
 
-
-const map = L.map('map');
-const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-  {attribution:'&copy; OpenStreetMap'}).addTo(map);
-const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-  {attribution:'Tiles &copy; Esri'});
-
-// Create panes for strict z-order (polygons at back)
-map.createPane('polys');   map.getPane('polys').style.zIndex = 200;
-map.createPane('lines');   map.getPane('lines').style.zIndex = 250;
-map.createPane('points');  map.getPane('points').style.zIndex = 300;
-
-// Split into three layers so polygons don't capture clicks
-const polyLayer = L.geoJSON(data, {
-  pane: 'polys',
-  filter: f => f.geometry.type === 'Polygon',
-  style: f => ({ weight: 2, fillOpacity: 0.25 }),
-  interactive: false  // <-- prevents the view cone from stealing clicks
-}).addTo(map);
-
-const lineLayer = L.geoJSON(data, {
-  pane: 'lines',
-  filter: f => f.geometry.type === 'LineString',
-  style: f => ({ weight: 3 })
-}).addTo(map);
-
-// Use pin-drop markers (Leaflet default icon) to make points prominent
-const pointLayer = L.geoJSON(data, {
-  pane: 'points',
-  filter: f => f.geometry.type === 'Point',
-  pointToLayer: (f, latlng) => L.marker(latlng, { title: f.properties?.name || '' }),
-  onEachFeature: (f, l) => {
-    const n = f.properties?.name || 'Feature';
-    const note = f.properties?.note ? `<br><em>${f.properties.note}</em>` : '';
-    l.bindPopup(`<b>${n}</b>${note}`);
+  let data;
+  try {
+    const resp = await fetch('ashland_landmarks.geojson', { cache: 'no-store' });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    data = await resp.json();
+    status.textContent = 'Loaded.';
+    setTimeout(() => status.remove(), 800);
+  } catch (err) {
+    status.innerHTML = `<span class="error">Couldn’t load ashland_landmarks.geojson (${err.message}).</span>`;
+    console.error(err);
+    return;
   }
-}).addTo(map);
 
-// Optional: add a faint halo under points for even more prominence
-const pointHalo = L.geoJSON(data, {
-  pane: 'points',
-  filter: f => f.geometry.type === 'Point',
-  pointToLayer: (f, latlng) =>
-    L.circleMarker(latlng, { radius: 10, weight: 2, opacity: 0.6, fillOpacity: 0.15 })
-}).addTo(map);
+  // ---- Build layers: polygons (non-interactive), lines, points --------------
+  // Polygons (e.g., view cone): draw behind & don't take clicks
+  const polyLayer = L.geoJSON(data, {
+    pane: 'polys',
+    filter: f => f.geometry && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon'),
+    style: f => ({ weight: 2, color: '#333', fillColor: '#ffcc66', fillOpacity: 0.25 }),
+    interactive: false
+  }).addTo(map);
 
-// Layer control
-L.control.layers({ 'OpenStreetMap': osm, 'Esri World Imagery': sat },
-                 { 'Points': pointLayer, 'Point halos': pointHalo, 'Lines': lineLayer, 'View cone': polyLayer },
-                 { collapsed: false }).addTo(map);
+  // Lines (rail alignment, sightline)
+  const lineLayer = L.geoJSON(data, {
+    pane: 'lines',
+    filter: f => f.geometry && (f.geometry.type === 'LineString' || f.geometry.type === 'MultiLineString'),
+    style: f => {
+      const nm = (f.properties && f.properties.name || '').toLowerCase();
+      const isRail = nm.includes('rail');
+      return { weight: 3, color: isRail ? '#0078ff' : '#444', opacity: 0.9, dashArray: isRail ? '6,4' : null };
+    }
+  }).addTo(map);
 
-// Fit to everything
-const all = L.featureGroup([polyLayer, lineLayer, pointLayer]);
-map.fitBounds(all.getBounds(), { padding: [20,20] });
+  // Halo under points for visibility on imagery
+  const haloLayer = L.geoJSON(data, {
+    pane: 'halos',
+    filter: f => f.geometry && f.geometry.type === 'Point',
+    pointToLayer: (f, latlng) => L.circleMarker(latlng, {
+      radius: 10, weight: 2, color: '#000', opacity: 0.5, fillOpacity: 0.15
+    })
+  }).addTo(map);
+
+  // Points as pin-drop markers
+  const pointLayer = L.geoJSON(data, {
+    pane: 'points',
+    filter: f => f.geometry && f.geometry.type === 'Point',
+    pointToLayer: (f, latlng) => L.marker(latlng, {
+      title: f.properties?.name || ''
+    }),
+    onEachFeature: (f, layer) => {
+      const name = f.properties?.name || 'Feature';
+      const note = f.properties?.note ? `<br><em>${f.properties.note}</em>` : '';
+      layer.bindPopup(`<b>${name}</b>${note}`);
+    }
+  }).addTo(map);
+
+  // Add to layer control
+  layersControl.addOverlay(polyLayer, 'View cone / Polygons');
+  layersControl.addOverlay(lineLayer, 'Lines');
+  layersControl.addOverlay(pointLayer, 'Points');
+  layersControl.addOverlay(haloLayer, 'Point halos');
+
+  // Fit to everything we’ve got
+  const group = L.featureGroup([polyLayer, lineLayer, pointLayer]);
+  if (group.getLayers().length) {
+    map.fitBounds(group.getBounds(), { padding: [20, 20] });
+  } else {
+    map.setView([39.4938, -76.6885], 16); // fallback near Ashland
+  }
+
+  // Turn on hillshade by default (optional)
+  mdHillshade.addTo(map);
+})();
 </script>
 </body>
 </html>
