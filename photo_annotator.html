@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Historical Photo Annotator</title>
+<style>
+  body { margin: 0; font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+  header { padding: 10px 12px; background: #111; color: #fff; display:flex; gap:16px; align-items:center; flex-wrap: wrap; }
+  header .spacer { flex: 1; }
+  #wrap { position: relative; }
+  canvas { display:block; width:100%; height:auto; background:#222; cursor: crosshair; }
+  small { opacity: .8; }
+  button, input[type=file] { font: inherit; }
+  .hint { padding: 6px 12px; background:#f5f5f5; border-top:1px solid #ddd }
+</style>
+</head>
+<body>
+<header>
+  <label>Choose image <input id="file" type="file" accept="image/*"></label>
+  <button id="download" disabled>Download annotated PNG</button>
+  <div class="spacer"></div>
+  <small>Tip: drag pins; drag the two blue handles to adjust the rail line. Hold <b>Shift</b> to move the whole line.</small>
+</header>
+<div id="wrap"><canvas id="c"></canvas></div>
+<div class="hint">
+  Layers: blue = rail line; orange = stacks; green = housing; white = white shop; yellow = yard; purple = slag bank.
+</div>
+
+<script>
+const c = document.getElementById('c');
+const ctx = c.getContext('2d');
+let img = new Image();
+let scale = 1, imgW = 0, imgH = 0;
+
+// Points are stored in *percent image coordinates* so they resize with the image
+const P = {
+  stacks:       { x:0.18, y:0.42, color:'#ff6d00', label:'Stacks / furnace works' },
+  white_shop:   { x:0.62, y:0.70, color:'#ffffff', stroke:'#333', label:'White shop building' },
+  housing:      { x:0.74, y:0.45, color:'#00aa55', label:'Worker housing rows' },
+  yard:         { x:0.41, y:0.63, color:'#ffde59', stroke:'#8a6d00', label:'Yard' },
+  slag_bank:    { x:0.62, y:0.55, color:'#7a4dff', label:'Slag / stone bank' }
+};
+
+// Rail line as a segment with two draggable endpoints (mid-frame by default)
+const rail = {
+  x1:0.06, y1:0.58, x2:0.95, y2:0.58,
+  color:'#0080ff'
+};
+
+const R_PIN = 8;         // pin radius (px, at 1x)
+const HIT = 14;          // hit radius for dragging
+let dragging = null;     // {type:'point'|'rail1'|'rail2'|'railSeg', key:...}
+let imgLoaded = false;
+
+function pctToPxX(p){ return Math.round(p * imgW); }
+function pctToPxY(p){ return Math.round(p * imgH); }
+function pxToPctX(x){ return Math.max(0, Math.min(1, x / imgW)); }
+function pxToPctY(y){ return Math.max(0, Math.min(1, y / imgH)); }
+
+function drawPin(x, y, fill, stroke='#000') {
+  ctx.lineWidth = 2;
+  ctx.fillStyle = fill;
+  ctx.strokeStyle = stroke;
+  ctx.beginPath();
+  ctx.arc(x, y, R_PIN, 0, Math.PI*2);
+  ctx.fill(); ctx.stroke();
+  // little pointer tail
+  ctx.beginPath();
+  ctx.moveTo(x, y + R_PIN);
+  ctx.lineTo(x, y + R_PIN + 10);
+  ctx.stroke();
+}
+
+function drawLabel(x, y, text) {
+  ctx.font = '16px system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+  ctx.textBaseline = 'top';
+  const pad = 4;
+  const metrics = ctx.measureText(text);
+  const w = metrics.width + pad*2, h = 20;
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(x + 12, y - 10, w, h);
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+  ctx.strokeRect(x + 12, y - 10, w, h);
+  ctx.fillStyle = '#fff';
+  ctx.fillText(text, x + 12 + pad, y - 8);
+}
+
+function drawRail() {
+  const x1 = pctToPxX(rail.x1), y1 = pctToPxY(rail.y1);
+  const x2 = pctToPxX(rail.x2), y2 = pctToPxY(rail.y2);
+  // semi-transparent band
+  ctx.save();
+  ctx.strokeStyle = rail.color;
+  ctx.fillStyle = 'rgba(0,128,255,0.25)';
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+  // handles
+  ctx.fillStyle = rail.color; ctx.strokeStyle = '#fff';
+  [ [x1,y1], [x2,y2] ].forEach(([x,y]) => {
+    ctx.beginPath(); ctx.arc(x,y, R_PIN, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  });
+  // label near center
+  const cx = (x1+x2)/2, cy = (y1+y2)/2 - 16;
+  drawLabel(cx, cy, 'Likely NCR rail line');
+  ctx.restore();
+}
+
+function redraw() {
+  if (!imgLoaded) return;
+  c.width = imgW; c.height = imgH;
+  ctx.drawImage(img, 0, 0, imgW, imgH);
+  // rail first
+  drawRail();
+  // then points
+  Object.values(P).forEach(p => {
+    const x = pctToPxX(p.x), y = pctToPxY(p.y);
+    drawPin(x, y, p.color, p.stroke || '#000');
+    drawLabel(x, y, p.label);
+  });
+}
+
+function loadFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    img = new Image();
+    img.onload = () => {
+      imgLoaded = true;
+      imgW = img.width; imgH = img.height;
+      // fit to viewport width (optional). For full-resolution export we keep canvas at image size.
+      redraw();
+      document.getElementById('download').disabled = false;
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+document.getElementById('file').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (f) loadFile(f);
+});
+
+c.addEventListener('mousedown', e => {
+  if (!imgLoaded) return;
+  const rect = c.getBoundingClientRect();
+  const x = e.clientX - rect.left, y = e.clientY - rect.top;
+
+  // hit test rail endpoints first
+  const r1 = { x: pctToPxX(rail.x1), y: pctToPxY(rail.y1) };
+  const r2 = { x: pctToPxX(rail.x2), y: pctToPxY(rail.y2) };
+  const dist = (a,b)=>Math.hypot(a.x-b.x, a.y-b.y);
+  if (dist({x,y}, r1) <= HIT) { dragging = { type:'rail1', dx: x - r1.x, dy: y - r1.y }; return; }
+  if (dist({x,y}, r2) <= HIT) { dragging = { type:'rail2', dx: x - r2.x, dy: y - r2.y }; return; }
+
+  // if Shift: drag whole rail
+  if (e.shiftKey) {
+    dragging = { type:'railSeg', startX:x, startY:y };
+    return;
+  }
+
+  // hit test points
+  for (const key of Object.keys(P)) {
+    const p = P[key];
+    const px = pctToPxX(p.x), py = pctToPxY(p.y);
+    if (Math.hypot(x - px, y - py) <= HIT) {
+      dragging = { type:'point', key, dx: x - px, dy: y - py };
+      return;
+    }
+  }
+});
+
+c.addEventListener('mousemove', e => {
+  if (!dragging || !imgLoaded) return;
+  const rect = c.getBoundingClientRect();
+  const x = e.clientX - rect.left, y = e.clientY - rect.top;
+
+  if (dragging.type === 'point') {
+    const p = P[dragging.key];
+    p.x = pxToPctX(x - dragging.dx);
+    p.y = pxToPctY(y - dragging.dy);
+  } else if (dragging.type === 'rail1') {
+    rail.x1 = pxToPctX(x - dragging.dx);
+    rail.y1 = pxToPctY(y - dragging.dy);
+  } else if (dragging.type === 'rail2') {
+    rail.x2 = pxToPctX(x - dragging.dx);
+    rail.y2 = pxToPctY(y - dragging.dy);
+  } else if (dragging.type === 'railSeg') {
+    const dx = x - dragging.startX;
+    const dy = y - dragging.startY;
+    rail.x1 = pxToPctX(pctToPxX(rail.x1) + dx);
+    rail.y1 = pxToPctY(pctToPxY(rail.y1) + dy);
+    rail.x2 = pxToPctX(pctToPxX(rail.x2) + dx);
+    rail.y2 = pxToPctY(pctToPxY(rail.y2) + dy);
+    dragging.startX = x; dragging.startY = y;
+  }
+  redraw();
+});
+
+window.addEventListener('mouseup', () => dragging = null);
+
+document.getElementById('download').addEventListener('click', () => {
+  if (!imgLoaded) return;
+  const a = document.createElement('a');
+  a.download = 'photo_annotated.png';
+  a.href = c.toDataURL('image/png');
+  a.click();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,120 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    { 
+      "type": "Feature", 
+      "properties": { 
+        "name": "Estimated Camera Position", 
+        "category": "reference",
+        "note": "(-76.6859, 39.4942)"
+      },
+      "geometry": { 
+        "type": "Point", 
+        "coordinates": [ -76.6859, 39.4942 ] 
+      }
+    },
+
+    { 
+      "type": "Feature", 
+      "properties": { 
+        "name": "Ashland Furnace site", 
+        "category": "reference",
+        "note": "approximate location based on historical maps (-76.6883, 39.4934)"
+      },
+      "geometry": { 
+        "type": "Point", 
+        "coordinates": [ -76.6883, 39.4934 ] 
+      }
+    },
+
+    { 
+      "type": "Feature", 
+      "properties": { 
+        "name": "Worker housing rows", 
+        "category": "housing",
+        "note": "approximate location based on historical maps (-76.692461, 39.494568)"
+      },
+      "geometry": { 
+        "type": "Point", 
+        "coordinates": [ -76.69246144780539, 39.49456875302705 ] 
+      }
+    },
+
+    { 
+      "type": "Feature", 
+      "properties": { 
+        "name": "Slag/stone bank (approx.)", 
+        "category": "slag" 
+      },
+      "geometry": { 
+        "type": "Point", 
+        "coordinates": [ -76.6896, 39.4936 ] 
+      }
+    },
+
+    { 
+      "type": "Feature", 
+      "properties": { 
+        "name": "View Cone (~35°)", 
+        "bearing_to_target_deg": 246.6, 
+        "category": "viewcone" 
+      },
+      "geometry": { 
+        "type": "Polygon",
+        "coordinates": [[
+          [ -76.6859, 39.4942 ],
+          [ -76.6929505919094, 39.48949289122057 ],
+          [ -76.69517431362617, 39.493464930916545 ],
+          [ -76.6859, 39.4942 ]
+        ]] }},
+
+    { 
+      "type": "Feature", 
+      "properties": { 
+        "name": "Camera→Target sightline", 
+        "category": "reference" 
+      },
+      "geometry": { 
+        "type": "LineString",
+        "coordinates": [[ -76.6859, 39.4942 ], [ -76.6883, 39.4934 ]] 
+      }
+    },
+
+    { 
+      "type": "Feature", 
+      "properties": { 
+        "name": "Approx. NCR Rail Alignment (≈20°)", 
+        "bearing_deg": 20.0, 
+        "category": "rail" 
+      },
+      "geometry": { 
+        "type": "LineString",
+        "coordinates": [[ -76.69228535154822, 39.48494907320139 ], [ -76.68431367943748, 39.50185079071264 ]] 
+      }
+    },
+
+    { 
+      "type": "Feature", 
+      "properties": { 
+        "name": "Rail Reference – North (≈350 m)", 
+        "category": "rail" 
+      },
+      "geometry": { 
+        "type": "Point", 
+        "coordinates": [ -76.68690489805466, 39.496357792232985 ] 
+      }
+    },
+
+    { 
+      "type": "Feature", 
+      "properties": { 
+        "name": "Rail Reference – South (≈450 m)", 
+        "category": "rail" 
+      },
+      "geometry": { 
+        "type": "Point", 
+        "coordinates": [ -76.69009352808165, 39.48959709977683 ] 
+      }
+    }
+  ]
+}
