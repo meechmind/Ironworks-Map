@@ -35,6 +35,9 @@
 
   const map = L.map('map', { layers: [osm] });
 
+  // Scale bar
+  L.control.scale({ metric: true, imperial: true }).addTo(map);
+
   // Create panes to control z-order and click behavior
   map.createPane('polys');   map.getPane('polys').style.zIndex = 200;
   map.createPane('lines');   map.getPane('lines').style.zIndex = 250;
@@ -137,8 +140,8 @@
     map.setView([39.4938, -76.6885], 16); // fallback near Ashland
   }
 
-  // Turn on hillshade by default (optional)
-  mdHillshade.addTo(map);
+  // Turn on hillshade by default (optional - uncomment to turn on)
+  // mdHillshade.addTo(map);
 })();
 </script>
 </body>
