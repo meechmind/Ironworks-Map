@@ -115,6 +115,44 @@
         "type": "Point", 
         "coordinates": [ -76.69009352808165, 39.48959709977683 ] 
       }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Estimated Camera Position (west slope, recommended)",
+        "category": "camera",
+        "note": "Likely vantage above the NCR corridor, looking SE toward the furnace ruins on watershed land."
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [ -76.68940, 39.49420 ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Estimated Camera Position (east slope, alt.)",
+        "category": "camera_alt",
+        "note": "Earlier estimate; keep only if sightlines match better."
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [ -76.68590, 39.49420 ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Sightline to Furnace (from west-slope camera)",
+        "category": "sightline"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [ -76.68940, 39.49420 ],
+          [ -76.68831, 39.49344 ]
+        ]
+      }
     }
   ]
 }
