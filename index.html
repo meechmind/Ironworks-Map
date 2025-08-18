@@ -165,9 +165,6 @@
       }).addTo(map);
 
       layersControl.addOverlay(L.layerGroup([tcbHalo, tcbLine]), 'Torrey C. Brown Trail (OSM)');
-      
-      // Optional: zoom to the Ashland segment if you want
-      map.fitBounds(tcbLine.getBounds(), { padding: [20,20] });
     }
   } catch (e) {
     console.warn('Could not load Overpass data', e);
