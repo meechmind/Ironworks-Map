@@ -22,7 +22,7 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/esri-leaflet@3/dist/esri-leaflet.js"></script>
-<script src="https://unpkg.com/osmtogeojson@3.0.0/osmtogeojson.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/osmtogeojson@3.0.0/dist/osmtogeojson.min.js"></script>
 
 <script>
 (async function () {
@@ -165,6 +165,9 @@
       }).addTo(map);
 
       layersControl.addOverlay(L.layerGroup([tcbHalo, tcbLine]), 'Torrey C. Brown Trail (OSM)');
+      
+      // Optional: zoom to the Ashland segment if you want
+      map.fitBounds(tcbLine.getBounds(), { padding: [20,20] });
     }
   } catch (e) {
     console.warn('Could not load Overpass data', e);
