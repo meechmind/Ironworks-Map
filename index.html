@@ -21,8 +21,9 @@
 <div class="topright" id="status">Loading GeoJSON…</div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<!-- Esri Leaflet to read ArcGIS REST (for MD Hillshade) -->
 <script src="https://unpkg.com/esri-leaflet@3/dist/esri-leaflet.js"></script>
+<script src="https://unpkg.com/osmtogeojson@3.0.0/osmtogeojson.js"></script>
+
 <script>
 (async function () {
   // ---- Base map & panes -----------------------------------------------------
@@ -38,23 +39,17 @@
   // Scale bar
   L.control.scale({ metric: true, imperial: true }).addTo(map);
 
-  // Create panes to control z-order and click behavior
+  // Panes for z-order/click behavior
   map.createPane('polys');   map.getPane('polys').style.zIndex = 200;
   map.createPane('lines');   map.getPane('lines').style.zIndex = 250;
   map.createPane('halos');   map.getPane('halos').style.zIndex = 295;
   map.createPane('points');  map.getPane('points').style.zIndex = 300;
 
-  // MD statewide LiDAR hillshade (ArcGIS ImageServer)
+  // MD LiDAR hillshade (default OFF; just available in control)
   const mdHillshade = L.esri.imageMapLayer({
     url: 'https://lidar.geodata.md.gov/imap/rest/services/Statewide/MD_statewide_hillshade_m/ImageServer',
     opacity: 0.6
   });
-
-  // Optional: Hopkins 1877 warped tiles (fill in when you have a MapWarper/MaptTiler URL)
-  // const hopkins1877 = L.tileLayer(
-  //   'https://mapwarper.net/maps/tile/<MAP_ID>/{z}/{x}/{y}.png',
-  //   { opacity: 0.55, attribution: 'Hopkins 1877 (warped)' }
-  // );
 
   const baseLayers = {
     'OpenStreetMap': osm,
@@ -62,7 +57,6 @@
   };
   const overlays = {
     'MD LiDAR Hillshade': mdHillshade
-    // ,'Hopkins 1877 (warped)': hopkins1877
   };
 
   const layersControl = L.control.layers(baseLayers, overlays, { collapsed: false }).addTo(map);
@@ -84,15 +78,13 @@
   }
 
   // ---- Build layers: polygons (non-interactive), lines, points --------------
-  // Polygons (e.g., view cone): draw behind & don't take clicks
   const polyLayer = L.geoJSON(data, {
     pane: 'polys',
     filter: f => f.geometry && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon'),
-    style: f => ({ weight: 2, color: '#333', fillColor: '#ffcc66', fillOpacity: 0.25 }),
+    style: { weight: 2, color: '#333', fillColor: '#ffcc66', fillOpacity: 0.25 },
     interactive: false
   }).addTo(map);
 
-  // Lines (rail alignment, sightline)
   const lineLayer = L.geoJSON(data, {
     pane: 'lines',
     filter: f => f.geometry && (f.geometry.type === 'LineString' || f.geometry.type === 'MultiLineString'),
@@ -103,7 +95,6 @@
     }
   }).addTo(map);
 
-  // Halo under points for visibility on imagery
   const haloLayer = L.geoJSON(data, {
     pane: 'halos',
     filter: f => f.geometry && f.geometry.type === 'Point',
@@ -112,13 +103,10 @@
     })
   }).addTo(map);
 
-  // Points as pin-drop markers
   const pointLayer = L.geoJSON(data, {
     pane: 'points',
     filter: f => f.geometry && f.geometry.type === 'Point',
-    pointToLayer: (f, latlng) => L.marker(latlng, {
-      title: f.properties?.name || ''
-    }),
+    pointToLayer: (f, latlng) => L.marker(latlng, { title: f.properties?.name || '' }),
     onEachFeature: (f, layer) => {
       const name = f.properties?.name || 'Feature';
       const note = f.properties?.note ? `<br><em>${f.properties.note}</em>` : '';
@@ -126,11 +114,64 @@
     }
   }).addTo(map);
 
-  // Add to layer control
   layersControl.addOverlay(polyLayer, 'View cone / Polygons');
   layersControl.addOverlay(lineLayer, 'Lines');
   layersControl.addOverlay(pointLayer, 'Points');
   layersControl.addOverlay(haloLayer, 'Point halos');
+
+  // --- Torrey C. Brown (NCR) Trail from OSM/Overpass -----------------------
+  try {
+    // Bounding box roughly: [south, west, north, east]
+    const bbox = [39.40, -76.78, 39.75, -76.55]; 
+
+    const q = `
+      [out:json][timeout:30];
+      (
+        way["name"~"Torrey C\\\\. Brown Trail|Northern Central Railroad Trail", i](${bbox.join(',')});
+        relation["name"~"Torrey C\\\\. Brown Trail|Northern Central Railroad Trail", i](${bbox.join(',')});
+      );
+      (._;>;);
+      out body;
+    `.trim();
+
+    // Primary Overpass; if busy, it falls back
+    const endpoints = [
+      'https://overpass-api.de/api/interpreter',
+      'https://overpass.kumi.systems/api/interpreter'
+    ];
+
+    let osm = null;
+    for (const url of endpoints) {
+      try {
+        const r = await fetch(url, { method: 'POST', body: q, headers: { 'Content-Type': 'text/plain' } });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        osm = await r.json();
+        break;
+      } catch (e) { console.warn('Overpass error on', url, e); }
+    }
+    if (osm) {
+      // Convert Overpass JSON -> GeoJSON and add to map
+      const tcbGeo = osmtogeojson(osm, { flatProperties: true });
+
+      // Style: bold blue line with dashed outline halo for visibility
+      const tcbHalo = L.geoJSON(tcbGeo, {
+        pane: 'lines',
+        style: { color: '#ffffff', weight: 7, opacity: 0.7, dashArray: '6,6' }
+      }).addTo(map);
+
+      const tcbLine = L.geoJSON(tcbGeo, {
+        pane: 'lines',
+        style: { color: '#0078ff', weight: 4, opacity: 0.95 }
+      }).addTo(map);
+
+      layersControl.addOverlay(L.layerGroup([tcbHalo, tcbLine]), 'Torrey C. Brown Trail (OSM)');
+      
+      // Optional: zoom to the Ashland segment if you want
+      map.fitBounds(tcbLine.getBounds(), { padding: [20,20] });
+    }
+  } catch (e) {
+    console.warn('Could not load Overpass data', e);
+  }
 
   // Fit to everything we’ve got
   const group = L.featureGroup([polyLayer, lineLayer, pointLayer]);
@@ -140,7 +181,7 @@
     map.setView([39.4938, -76.6885], 16); // fallback near Ashland
   }
 
-  // Turn on hillshade by default (optional - uncomment to turn on)
+  // Hillshade default OFF (available in layers control)
   // mdHillshade.addTo(map);
 })();
 </script>
