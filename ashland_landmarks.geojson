@@ -115,27 +115,6 @@
         "type": "Point", 
         "coordinates": [ -76.69009352808165, 39.48959709977683 ] 
       }
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "name": "Estimated Camera Position (east slope, alt.)",
-        "category": "camera_alt",
-        "note": "Earlier estimate; keep only if sightlines match better."
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [ -76.68590, 39.49420 ]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "name": "Ashland Furnace ruins (east-bank terrace – candidate)",
-        "category": "ruins",
-        "note": "East slope above NCR/TCB trail; S/SE of trailhead."
-      },
-      "geometry": { "type": "Point", "coordinates": [ -76.68795, 39.49480 ] }
     }
   ]
 }
